@@ -3,15 +3,20 @@ version: '3.9'
 services:
 
   jenkins:
-    image: jenkins/jenkins:lts-jdk21
+     #image: jenkins/jenkins:lts-jdk21 remplacé par build pour utiliser le Dockerfile.jenkins
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
     container_name: shopflow-jenkins
     ports:
       - "8080:8080"
       - "50000:50000"
+    user: root
     volumes:
       - jenkins_home:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+
 
   sonarqube:
     image: sonarqube:community
