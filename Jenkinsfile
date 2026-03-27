@@ -125,21 +125,21 @@ print('BANDIT: aucune vulnérabilité HIGH')
         }
 
         stage('SonarQube Analysis') {
+            agent {
+                docker {
+                    image 'sonarsource/sonar-scanner-cli:latest'
+                    reuseNode true
+                }
+            }
             steps {
                 withSonarQubeEnv('SonarQube') {
                     sh '''
-                        docker run --rm \
-                            --network host \
-                            -v "$(pwd):/usr/src" \
-                            -e SONAR_HOST_URL="${SONAR_HOST_URL}" \
-                            -e SONAR_TOKEN="${SONAR_TOKEN}" \
-                            sonarsource/sonar-scanner-cli \
-                            sonar-scanner \
-                                -Dsonar.projectKey=shopflow \
-                                -Dsonar.sources=app \
-                                -Dsonar.tests=tests \
-                                -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                -Dsonar.python.pylint.reportPaths=pylint-report.txt
+                        sonar-scanner \
+                            -Dsonar.projectKey=shopflow \
+                            -Dsonar.sources=app \
+                            -Dsonar.tests=tests \
+                            -Dsonar.python.coverage.reportPaths=coverage.xml \
+                            -Dsonar.python.pylint.reportPaths=pylint-report.txt
                     '''
                 }
             }
