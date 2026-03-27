@@ -22,7 +22,9 @@ def create_order(order_data: OrderCreate, db: Session = Depends(get_db)):
             Coupon.actif == True
         ).first()
         if not coupon:
-            raise HTTPException(status_code=404, detail="Coupon non trouvé ou inactif")
+            #raise HTTPException(status_code=404, detail="Coupon non trouvé ou inactif")
+            raise HTTPException( status_code=404, detail=f"Coupon non trouvé ou inactif : {order_data.coupon_code}"
+        )
     try:
         order = creer_commande(order_data.user_id, cart, db, coupon)
     except ValueError as e:
