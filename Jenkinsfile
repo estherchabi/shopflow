@@ -1,10 +1,6 @@
 // Jenkinsfile — ShopFlow CI/CD Pipeline
 pipeline {
-    agent {
-        docker {
-            image 'python:3.11-slim'
-            args '--user root'
-        }
+    agent agent any
     }
 
     environment {
