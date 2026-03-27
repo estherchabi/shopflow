@@ -1,10 +1,5 @@
 pipeline {
-    agent {
-        docker {
-            image 'python:3.11-slim'
-            args '--user root'
-        }
-    }
+    agent none
 
     environment {
         APP_NAME = 'shopflow'
@@ -12,6 +7,13 @@ pipeline {
 
     stages {
         stage('Install') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    args '--user root'
+                    reuseNode true
+                }
+            }
             steps {
                 sh '''
                     pip install --upgrade pip -q
@@ -22,8 +24,16 @@ pipeline {
         }
 
         stage('Lint') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    args '--user root'
+                    reuseNode true
+                }
+            }
             steps {
                 sh '''
+                    pip install -r requirements.txt -q
                     flake8 app/ \
                         --max-line-length=100 \
                         --exclude=__init__.py \
@@ -33,8 +43,16 @@ pipeline {
         }
 
         stage('Unit Tests') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    args '--user root'
+                    reuseNode true
+                }
+            }
             steps {
                 sh '''
+                    pip install -r requirements.txt -q
                     pytest tests/unit/ \
                         -v \
                         -m unit \
@@ -50,8 +68,16 @@ pipeline {
         }
 
         stage('Integration Tests') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    args '--user root'
+                    reuseNode true
+                }
+            }
             steps {
                 sh '''
+                    pip install -r requirements.txt -q
                     pytest tests/integration/ \
                         -v \
                         -m integration \
@@ -67,8 +93,16 @@ pipeline {
         }
 
         stage('Coverage') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    args '--user root'
+                    reuseNode true
+                }
+            }
             steps {
                 sh '''
+                    pip install -r requirements.txt -q
                     pytest tests/ \
                         --cov=app \
                         --cov-report=xml:coverage.xml \
@@ -90,21 +124,24 @@ pipeline {
                         reportName: 'Coverage Report'
                     ])
                 }
-                failure {
-                    echo 'Coverage < 80% - ajouter des tests'
-                }
             }
         }
 
         stage('Static Analysis') {
+            agent {
+                docker {
+                    image 'python:3.11-slim'
+                    args '--user root'
+                    reuseNode true
+                }
+            }
             steps {
                 sh '''
+                    pip install -r requirements.txt -q
                     pylint app/ \
                         --output-format=parseable \
                         --exit-zero \
                         > pylint-report.txt || true
-
-                    echo "Pylint terminé - voir pylint-report.txt"
 
                     bandit -r app/ \
                         -f json \
