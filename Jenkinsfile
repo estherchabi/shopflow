@@ -1,4 +1,3 @@
-// Jenkinsfile — ShopFlow CI/CD Pipeline
 pipeline {
     agent {
         docker {
@@ -7,14 +6,11 @@ pipeline {
         }
     }
 
-
     environment {
-        APP_NAME  = 'shopflow'
-        // IMAGE_TAG sera défini dans le stage Build Docker
+        APP_NAME = 'shopflow'
     }
 
     stages {
-        // ← vos stages ici (parties 2, 3, 4)
         stage('Install') {
             steps {
                 sh '''
@@ -24,6 +20,7 @@ pipeline {
                 '''
             }
         }
+
         stage('Lint') {
             steps {
                 sh '''
@@ -33,13 +30,8 @@ pipeline {
                         --format=default || true
                 '''
             }
-            post {
-                failure {
-                    echo 'Lint échoué  corriger les erreurs PEP8'
-                }
-            }
         }
-        
+
         stage('Unit Tests') {
             steps {
                 sh '''
@@ -52,7 +44,7 @@ pipeline {
             }
             post {
                 always {
-                    junit 'junit-unit.xml'   // publie les résultats dans Jenkins
+                    junit 'junit-unit.xml'
                 }
             }
         }
@@ -88,6 +80,7 @@ pipeline {
             }
             post {
                 always {
+                    junit 'junit-report.xml'
                     publishHTML(target: [
                         allowMissing: false,
                         alwaysLinkToLastBuild: true,
@@ -98,19 +91,78 @@ pipeline {
                     ])
                 }
                 failure {
-                    echo 'Coverage < 80% — ajouter des tests'
+                    echo 'Coverage < 80% - ajouter des tests'
                 }
             }
         }
 
-    }
+        stage('Static Analysis') {
+            steps {
+                sh '''
+                    pylint app/ \
+                        --output-format=parseable \
+                        --exit-zero \
+                        > pylint-report.txt || true
 
+                    echo "Pylint terminé - voir pylint-report.txt"
+
+                    bandit -r app/ \
+                        -f json \
+                        -o bandit-report.json \
+                        --exit-zero
+
+                    python3 -c "
+import json, sys
+data = json.load(open('bandit-report.json'))
+high = [r for r in data.get('results', []) if r['issue_severity'] == 'HIGH']
+if high:
+    print(f'BANDIT: {len(high)} vuln HIGH détectée(s)')
+    sys.exit(1)
+print('BANDIT: aucune vulnérabilité HIGH')
+"
+                '''
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        docker run --rm \
+                            --network host \
+                            -v "$(pwd):/usr/src" \
+                            -e SONAR_HOST_URL="${SONAR_HOST_URL}" \
+                            -e SONAR_TOKEN="${SONAR_TOKEN}" \
+                            sonarsource/sonar-scanner-cli \
+                            sonar-scanner \
+                                -Dsonar.projectKey=shopflow \
+                                -Dsonar.sources=app \
+                                -Dsonar.tests=tests \
+                                -Dsonar.python.coverage.reportPaths=coverage.xml \
+                                -Dsonar.python.pylint.reportPaths=pylint-report.txt
+                    '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+    }
 
     post {
         always {
             echo 'Pipeline terminé'
         }
-        success { echo 'Pipeline ShopFlow réussi' }
-        failure { echo 'Pipeline ShopFlow échoué' }
+        success {
+            echo 'Pipeline ShopFlow réussi'
+        }
+        failure {
+            echo 'Pipeline ShopFlow échoué'
+        }
     }
 }
