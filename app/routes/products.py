@@ -36,12 +36,24 @@ def list_products(
 def get_product(product_id: int, db: Session = Depends(get_db)):
     cache_key = f"product:{product_id}"
     cached = get_cached(cache_key)
-    if cached:
+
+
+    #if cached:
+    #    return json.loads(cached)
+    #product = db.query(Product).filter(
+    #    Product.id == product_id,
+    #    Product.active == True
+    #).first()
+
+    if isinstance(cached, (str, bytes, bytearray)):
         return json.loads(cached)
+
     product = db.query(Product).filter(
         Product.id == product_id,
         Product.active == True
     ).first()
+
+
     if not product:
         raise HTTPException(status_code=404, detail=f"Produit {product_id} non trouvé")
     set_cached(cache_key, json.dumps({
