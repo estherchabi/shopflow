@@ -1,6 +1,6 @@
 // Jenkinsfile — ShopFlow CI/CD Pipeline
 pipeline {
-    agent agent any
+    agent any
     }
 
     environment {
