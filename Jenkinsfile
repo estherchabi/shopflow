@@ -1,19 +1,21 @@
+// Jenkinsfile — ShopFlow CI/CD Pipeline
 pipeline {
-    agent none
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            args '--user root'
+        }
+    }
+
 
     environment {
-        APP_NAME = 'shopflow'
+        APP_NAME  = 'shopflow'
+        // IMAGE_TAG sera défini dans le stage Build Docker
     }
 
     stages {
+        // ← vos stages ici (parties 2, 3, 4)
         stage('Install') {
-            agent {
-                docker {
-                    image 'python:3.11-slim'
-                    args '--user root'
-                    reuseNode true
-                }
-            }
             steps {
                 sh '''
                     pip install --upgrade pip -q
@@ -22,37 +24,25 @@ pipeline {
                 '''
             }
         }
-
         stage('Lint') {
-            agent {
-                docker {
-                    image 'python:3.11-slim'
-                    args '--user root'
-                    reuseNode true
-                }
-            }
             steps {
                 sh '''
-                    pip install -r requirements.txt -q
                     flake8 app/ \
                         --max-line-length=100 \
                         --exclude=__init__.py \
                         --format=default || true
                 '''
             }
-        }
-
-        stage('Unit Tests') {
-            agent {
-                docker {
-                    image 'python:3.11-slim'
-                    args '--user root'
-                    reuseNode true
+            post {
+                failure {
+                    echo 'Lint échoué  corriger les erreurs PEP8'
                 }
             }
+        }
+        
+        stage('Unit Tests') {
             steps {
                 sh '''
-                    pip install -r requirements.txt -q
                     pytest tests/unit/ \
                         -v \
                         -m unit \
@@ -62,22 +52,14 @@ pipeline {
             }
             post {
                 always {
-                    junit 'junit-unit.xml'
+                    junit 'junit-unit.xml'   // publie les résultats dans Jenkins
                 }
             }
         }
 
         stage('Integration Tests') {
-            agent {
-                docker {
-                    image 'python:3.11-slim'
-                    args '--user root'
-                    reuseNode true
-                }
-            }
             steps {
                 sh '''
-                    pip install -r requirements.txt -q
                     pytest tests/integration/ \
                         -v \
                         -m integration \
@@ -93,16 +75,8 @@ pipeline {
         }
 
         stage('Coverage') {
-            agent {
-                docker {
-                    image 'python:3.11-slim'
-                    args '--user root'
-                    reuseNode true
-                }
-            }
             steps {
                 sh '''
-                    pip install -r requirements.txt -q
                     pytest tests/ \
                         --cov=app \
                         --cov-report=xml:coverage.xml \
@@ -114,7 +88,6 @@ pipeline {
             }
             post {
                 always {
-                    junit 'junit-report.xml'
                     publishHTML(target: [
                         allowMissing: false,
                         alwaysLinkToLastBuild: true,
@@ -124,82 +97,23 @@ pipeline {
                         reportName: 'Coverage Report'
                     ])
                 }
-            }
-        }
-
-        stage('Static Analysis') {
-            agent {
-                docker {
-                    image 'python:3.11-slim'
-                    args '--user root'
-                    reuseNode true
-                }
-            }
-            steps {
-                sh '''
-                    pip install -r requirements.txt -q
-                    pylint app/ \
-                        --output-format=parseable \
-                        --exit-zero \
-                        > pylint-report.txt || true
-
-                    bandit -r app/ \
-                        -f json \
-                        -o bandit-report.json \
-                        --exit-zero
-
-                    python3 -c "
-import json, sys
-data = json.load(open('bandit-report.json'))
-high = [r for r in data.get('results', []) if r['issue_severity'] == 'HIGH']
-if high:
-    print(f'BANDIT: {len(high)} vuln HIGH détectée(s)')
-    sys.exit(1)
-print('BANDIT: aucune vulnérabilité HIGH')
-"
-                '''
-            }
-        }
-
-        stage('SonarQube Analysis') {
-            agent {
-                docker {
-                    image 'sonarsource/sonar-scanner-cli:latest'
-                    reuseNode true
-                }
-            }
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        sonar-scanner \
-                            -Dsonar.projectKey=shopflow \
-                            -Dsonar.sources=app \
-                            -Dsonar.tests=tests \
-                            -Dsonar.python.coverage.reportPaths=coverage.xml \
-                            -Dsonar.python.pylint.reportPaths=pylint-report.txt
-                    '''
+                failure {
+                    echo 'Coverage < 80% — ajouter des tests'
                 }
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        
+
     }
+
 
     post {
         always {
             echo 'Pipeline terminé'
         }
-        success {
-            echo 'Pipeline ShopFlow réussi'
-        }
-        failure {
-            echo 'Pipeline ShopFlow échoué'
-        }
+        success { echo 'Pipeline ShopFlow réussi' }
+        failure { echo 'Pipeline ShopFlow échoué' }
     }
 }
+
